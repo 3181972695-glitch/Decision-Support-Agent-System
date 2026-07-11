@@ -1,0 +1,52 @@
+# ── Python ───────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+*.so
+
+# ── Node ─────────────────────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/build/
+*.tsbuildinfo
+.eslintcache
+
+# ── macOS ────────────────────────────────────────────────────────
+.DS_Store
+*.swp
+*.swo
+*~
+.AppleDouble
+.LSOverride
+Icon?
+
+# ── IDE / Editor ─────────────────────────────────────────────────
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.swo
+
+# ── Environment ──────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Testing ──────────────────────────────────────────────────────
+.coverage
+htmlcov/
+.pytest_cache/
+.coverage.*
+*.log
+
+# ── Project ──────────────────────────────────────────────────────
+.claude/worktrees/
+.claude/scheduled_tasks.json

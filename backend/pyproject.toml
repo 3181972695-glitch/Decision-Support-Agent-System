@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+asyncio_default_test_loop_scope = "function"
+asyncio_mode = "auto"
+testpaths = ["tests"]
