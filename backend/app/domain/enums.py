@@ -19,3 +19,20 @@ class AgentRole(str, Enum):
     CON = "con"
     MODERATOR = "moderator"
     JUDGE = "judge"
+
+
+class ResponseType(str, Enum):
+    """Type of response an agent should produce.
+
+    Used to differentiate between opening arguments, rebuttals,
+    cross-examination questions, and answers within the same agent class.
+    """
+
+    OPENING = "opening"
+    REBUTTAL = "rebuttal"
+    CROSS_EXAMINE_ASK = "cross_examine_ask"
+    CROSS_EXAMINE_ANSWER = "cross_examine_answer"
+    USER_ANSWER = "user_answer"
+    VERDICT = "verdict"
+    MODERATOR_INTRO = "moderator_intro"
+    MODERATOR_SUMMARY = "moderator_summary"

@@ -5,12 +5,12 @@ import os
 load_dotenv()
 
 client = OpenAI(
-    api_key=os.getenv("DEEPSEEK_API_KEY"),
-    base_url="https://api.deepseek.com",
+    api_key=os.getenv("LLM_API_KEY"),
+    base_url=os.getenv("LLM_BASE_URL"),
 )
 
 response = client.chat.completions.create(
-    model="deepseek-chat",
+    model=os.getenv("LLM_MODEL"),
     messages=[
         {
             "role": "user",
@@ -20,5 +20,3 @@ response = client.chat.completions.create(
 )
 
 print(response.choices[0].message.content)
-print(repr(os.getenv("DEEPSEEK_API_KEY")))
-

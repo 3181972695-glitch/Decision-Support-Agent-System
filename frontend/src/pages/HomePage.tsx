@@ -1,13 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import TopicForm from "../components/TopicForm";
 import { useDebate } from "../hooks/useDebate";
+import type { DebateConfig } from "../types/debate";
 
 function HomePage() {
   const navigate = useNavigate();
   const { createDebate, loading, error } = useDebate();
 
-  const handleSubmit = async (topic: string) => {
-    const debate = await createDebate(topic);
+  const handleSubmit = async (config: DebateConfig) => {
+    const debate = await createDebate(config);
     if (debate) {
       navigate(`/debate/${debate.id}`);
     }

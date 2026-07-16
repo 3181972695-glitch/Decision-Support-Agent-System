@@ -64,3 +64,29 @@ No other files need changing.
 - **Agents talk only through `LLMService`** — never call an API directly.
 - **Repositories implement an ABC** — swap implementations without touching services.
 - **Frontend `types/debate.ts`** mirrors `backend/app/api/schemas.py`.
+
+## Database Migrations (Alembic)
+
+When using the SQL backend (`DB_BACKEND=sql`), manage schema with Alembic:
+
+```bash
+cd backend
+
+# Create a new migration after changing models.py
+alembic revision --autogenerate -m "description"
+
+# Apply all pending migrations
+alembic upgrade head
+
+# Rollback one migration
+alembic downgrade -1
+
+# View migration history
+alembic history
+
+# Generate SQL for a migration (dry-run)
+alembic upgrade head --sql
+```
+
+The `alembic/env.py` reads `DATABASE_URL` from your `.env` file.
+Migrations are in `backend/alembic/versions/`.

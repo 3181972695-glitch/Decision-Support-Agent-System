@@ -25,7 +25,7 @@ User Topic → Moderator opens debate
 ```bash
 # 1. Backend
 cd backend
-python -m venv .venv && source .venv/bin/activate
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env          # DEMO_MODE=true is already the default
 uvicorn app.main:app --reload # → http://localhost:8000
@@ -46,8 +46,8 @@ The debate will complete in about 2 seconds with realistic simulated arguments f
 
 ```bash
 cd backend
-python -m venv .venv
-source .venv/bin/activate
+python -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 ```
@@ -69,7 +69,7 @@ cp .env.example .env
 
 ```bash
 # Terminal 1 — FastAPI
-cd backend && source .venv/bin/activate && uvicorn app.main:app --reload
+cd backend && source venv/bin/activate && uvicorn app.main:app --reload
 
 # Terminal 2 — Vite
 cd frontend && npm run dev
@@ -180,7 +180,7 @@ Implement `DebateRepository` (PostgreSQL, Redis, etc.) and inject it into `Debat
 ## Testing
 
 ```bash
-cd backend && source .venv/bin/activate
+cd backend && source venv/bin/activate
 python -m pytest tests/ -v     # 187 tests
 ruff check app/ tests/          # lint
 ```

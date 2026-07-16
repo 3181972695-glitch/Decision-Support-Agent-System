@@ -10,7 +10,14 @@ from datetime import datetime, timezone
 
 import pytest
 
-from app.domain.debate import Argument, Debate, Round, Verdict
+from app.domain.debate import (
+    Argument,
+    CrossExaminationQA,
+    Debate,
+    Round,
+    UserQuestionQA,
+    Verdict,
+)
 from app.domain.enums import AgentRole, DebateStatus
 
 
@@ -54,6 +61,46 @@ class TestArgument:
 
 
 # =================================================================
+#  CrossExaminationQA
+# =================================================================
+
+
+class TestCrossExaminationQA:
+    """CrossExaminationQA holds a Q&A pair between opposing agents."""
+
+    def test_create_qa_pair(self) -> None:
+        qa = CrossExaminationQA(
+            question_role=AgentRole.PRO,
+            question="What evidence supports your claim?",
+            answer_role=AgentRole.CON,
+            answer="The evidence is clear.",
+        )
+        assert qa.question_role == AgentRole.PRO
+        assert qa.question == "What evidence supports your claim?"
+        assert qa.answer_role == AgentRole.CON
+        assert qa.answer == "The evidence is clear."
+
+
+# =================================================================
+#  UserQuestionQA
+# =================================================================
+
+
+class TestUserQuestionQA:
+    """UserQuestionQA holds a user's question and an agent's answer."""
+
+    def test_create_user_qa(self) -> None:
+        uq = UserQuestionQA(
+            target_role=AgentRole.PRO,
+            question="How does this apply to my situation?",
+            answer="Consider your specific circumstances.",
+        )
+        assert uq.target_role == AgentRole.PRO
+        assert uq.question == "How does this apply to my situation?"
+        assert uq.answer == "Consider your specific circumstances."
+
+
+# =================================================================
 #  Round
 # =================================================================
 
@@ -64,58 +111,68 @@ class TestRound:
     def test_create_with_required_fields(self) -> None:
         round_ = Round(round_number=1)
         assert round_.round_number == 1
+        assert round_.round_focus is None
+        assert round_.moderator_intro is None
+        assert round_.pro_opening is None
+        assert round_.con_opening is None
+        assert round_.cross_examination == []
+        assert round_.pro_rebuttal is None
+        assert round_.con_rebuttal is None
+        assert round_.user_questions == []
         assert round_.moderator_summary is None
         assert round_.moderator_steer is None
-        assert round_.pro_argument is None
-        assert round_.con_argument is None
+        # Legacy compat
 
     def test_create_with_all_fields(self) -> None:
         pro = Argument(role=AgentRole.PRO, content="For it.")
         con = Argument(role=AgentRole.CON, content="Against it.")
+        pro_rebuttal = Argument(role=AgentRole.PRO, content="Rebuttal.")
+        con_rebuttal = Argument(role=AgentRole.CON, content="Counter.")
+        cross = [
+            CrossExaminationQA(
+                question_role=AgentRole.PRO,
+                question="Why?",
+                answer_role=AgentRole.CON,
+                answer="Because.",
+            )
+        ]
         round_ = Round(
             round_number=2,
+            round_focus="Challenge assumptions",
+            moderator_intro="Let's discuss costs.",
+            pro_opening=pro,
+            con_opening=con,
+            cross_examination=cross,
+            pro_rebuttal=pro_rebuttal,
+            con_rebuttal=con_rebuttal,
             moderator_summary="Both sides raised valid points.",
             moderator_steer="Focus on financial aspects next round.",
-            pro_argument=pro,
-            con_argument=con,
         )
         assert round_.round_number == 2
-        assert round_.moderator_summary == "Both sides raised valid points."
-        assert round_.moderator_steer == "Focus on financial aspects next round."
-        assert round_.pro_argument is pro
-        assert round_.con_argument is con
-
-    def test_moderator_summary_and_steer_can_be_set_independently(self) -> None:
-        round_ = Round(
-            round_number=1,
-            moderator_summary="Opening round summary.",
-        )
-        assert round_.moderator_summary == "Opening round summary."
-        assert round_.moderator_steer is None
-
-    def test_pro_argument_optional(self) -> None:
-        con = Argument(role=AgentRole.CON, content="Against.")
-        round_ = Round(round_number=1, con_argument=con)
-        assert round_.pro_argument is None
-        assert round_.con_argument is con
-
-    def test_con_argument_optional(self) -> None:
-        pro = Argument(role=AgentRole.PRO, content="For.")
-        round_ = Round(round_number=1, pro_argument=pro)
-        assert round_.con_argument is None
-        assert round_.pro_argument is pro
+        assert round_.round_focus == "Challenge assumptions"
+        assert round_.moderator_intro == "Let's discuss costs."
+        assert round_.pro_opening is pro
+        assert round_.con_opening is con
+        assert len(round_.cross_examination) == 1
+        assert round_.pro_rebuttal is pro_rebuttal
+        assert round_.con_rebuttal is con_rebuttal
 
     def test_round_number_accepts_any_integer_by_default(self) -> None:
-        """Domain models are intentionally schema-agnostic.
-
-        Validation (e.g. round_number > 0) is enforced by the service
-        layer, not by the dataclass itself. This test documents that
-        the domain accepts what it's given.
-        """
         round_ = Round(round_number=0)
         assert round_.round_number == 0
         round_ = Round(round_number=-1)
         assert round_.round_number == -1
+
+    def test_user_questions_can_be_added(self) -> None:
+        round_ = Round(round_number=1)
+        uq = UserQuestionQA(
+            target_role=AgentRole.PRO,
+            question="User question?",
+            answer="Agent answer.",
+        )
+        round_.user_questions.append(uq)
+        assert len(round_.user_questions) == 1
+        assert round_.user_questions[0].question == "User question?"
 
 
 # =================================================================
@@ -147,10 +204,8 @@ class TestVerdict:
 
     def test_immutable_by_convention(self) -> None:
         verdict = Verdict(summary="S.", recommendation="R.")
-        # Dataclass fields are mutable in Python — this test documents
-        # that we treat Verdict as conceptually immutable.
         verdict.summary = "Updated."
-        assert verdict.summary == "Updated."  # allowed at language level
+        assert verdict.summary == "Updated."
 
 
 # =================================================================
@@ -165,10 +220,16 @@ class TestDebateCreation:
         debate = Debate(id="deb-1", topic="Should I move abroad?")
         assert debate.id == "deb-1"
         assert debate.topic == "Should I move abroad?"
+        assert debate.max_rounds == 3
         assert debate.status == DebateStatus.PENDING
         assert debate.rounds == []
         assert debate.verdict is None
         assert debate.updated_at is None
+        assert debate.awaiting_input is False
+
+    def test_create_with_custom_max_rounds(self) -> None:
+        debate = Debate(id="deb-1", topic="Test", max_rounds=5)
+        assert debate.max_rounds == 5
 
     def test_created_at_defaults_to_utc_now(self) -> None:
         before = datetime.now(timezone.utc)
@@ -188,6 +249,10 @@ class TestDebateCreation:
     def test_verdict_defaults_to_none(self) -> None:
         debate = Debate(id="deb-5", topic="Test.")
         assert debate.verdict is None
+
+    def test_awaiting_input_defaults_to_false(self) -> None:
+        debate = Debate(id="deb-6", topic="Test.")
+        assert debate.awaiting_input is False
 
 
 class TestDebateAddRound:
@@ -360,7 +425,7 @@ class TestDebateIsCompleted:
 
 
 class TestDebateLifecycle:
-    """Simulate a full 3-round debate end-to-end."""
+    """Simulate a full structured debate end-to-end."""
 
     def test_full_debate_lifecycle(self) -> None:
         debate = Debate(id="lifecycle-1", topic="Should I learn Rust?")
@@ -373,30 +438,57 @@ class TestDebateLifecycle:
         # Start
         debate.advance_status(DebateStatus.IN_PROGRESS)
 
-        # Round 1
+        # Round 1 - structured
         r1_pro = Argument(role=AgentRole.PRO, content="Rust is memory-safe.")
         r1_con = Argument(
             role=AgentRole.CON, content="Rust has a steep learning curve."
         )
+        r1_pro_rebuttal = Argument(
+            role=AgentRole.PRO, content="The learning curve is worth it."
+        )
+        r1_con_rebuttal = Argument(
+            role=AgentRole.CON, content="Time is better spent elsewhere."
+        )
+        r1_cross = [
+            CrossExaminationQA(
+                question_role=AgentRole.PRO,
+                question="Is the learning curve really prohibitive?",
+                answer_role=AgentRole.CON,
+                answer="For most teams, yes.",
+            ),
+            CrossExaminationQA(
+                question_role=AgentRole.CON,
+                question="Can you guarantee performance benefits?",
+                answer_role=AgentRole.PRO,
+                answer="The data is clear.",
+            ),
+        ]
         r1 = Round(
             round_number=1,
-            moderator_summary="Opening statements made.",
+            round_focus="Establish core arguments",
+            moderator_intro="Let's begin with the basics.",
+            pro_opening=r1_pro,
+            con_opening=r1_con,
+            cross_examination=r1_cross,
+            pro_rebuttal=r1_pro_rebuttal,
+            con_rebuttal=r1_con_rebuttal,
+            moderator_summary="Strong opening from both sides.",
             moderator_steer="Address performance next.",
-            pro_argument=r1_pro,
-            con_argument=r1_con,
         )
         debate.add_round(r1)
         assert debate.latest_round() is r1
+        assert debate.latest_round().round_focus == "Establish core arguments"  # type: ignore[union-attr]
+        assert len(debate.latest_round().cross_examination) == 2  # type: ignore[union-attr]
 
         # Round 2
         r2_pro = Argument(role=AgentRole.PRO, content="Zero-cost abstractions.")
         r2_con = Argument(role=AgentRole.CON, content="Long compile times.")
         r2 = Round(
             round_number=2,
-            moderator_summary="Performance debated.",
-            moderator_steer="Discuss ecosystem maturity.",
-            pro_argument=r2_pro,
-            con_argument=r2_con,
+            round_focus="Challenge assumptions",
+            moderator_intro="Let's probe deeper.",
+            pro_opening=r2_pro,
+            con_opening=r2_con,
         )
         debate.add_round(r2)
 
@@ -409,10 +501,10 @@ class TestDebateLifecycle:
         )
         r3 = Round(
             round_number=3,
-            moderator_summary="Ecosystem covered.",
-            moderator_steer="Final arguments.",
-            pro_argument=r3_pro,
-            con_argument=r3_con,
+            round_focus="Discuss practical implications",
+            moderator_intro="Let's look at real-world impact.",
+            pro_opening=r3_pro,
+            con_opening=r3_con,
         )
         debate.add_round(r3)
 
@@ -420,9 +512,14 @@ class TestDebateLifecycle:
         assert len(debate.rounds) == 3
         assert [r.round_number for r in debate.rounds] == [1, 2, 3]
 
-        # Verify round 2 data
-        assert debate.rounds[1].moderator_summary == "Performance debated."
-        assert debate.rounds[1].moderator_steer == "Discuss ecosystem maturity."
+        # Verify round 1 structured data
+        assert debate.rounds[0].round_focus == "Establish core arguments"
+        assert debate.rounds[0].moderator_intro == "Let's begin with the basics."
+        assert debate.rounds[0].moderator_summary == "Strong opening from both sides."
+        assert len(debate.rounds[0].cross_examination) == 2
+        assert debate.rounds[0].cross_examination[0].question_role == AgentRole.PRO
+        assert debate.rounds[0].pro_rebuttal is not None
+        assert debate.rounds[0].con_rebuttal is not None
 
         # Set verdict
         verdict = Verdict(
@@ -443,7 +540,6 @@ class TestDebateLifecycle:
     def test_debate_with_error_status(self) -> None:
         debate = Debate(id="error-1", topic="Test.")
         debate.advance_status(DebateStatus.IN_PROGRESS)
-        # Simulate a failure mid-debate
         debate.advance_status(DebateStatus.ERROR)
         assert debate.is_completed() is True
         assert debate.status == DebateStatus.ERROR
@@ -479,9 +575,9 @@ class TestDebateEdgeCases:
     def test_empty_round_content(self) -> None:
         """Content can be an empty string — validation is a service-layer concern."""
         arg = Argument(role=AgentRole.PRO, content="")
-        round_ = Round(round_number=1, pro_argument=arg)
-        assert round_.pro_argument is not None
-        assert round_.pro_argument.content == ""
+        round_ = Round(round_number=1, pro_opening=arg)
+        assert round_.pro_opening is not None
+        assert round_.pro_opening.content == ""
 
     def test_debate_uuid_formats(self) -> None:
         for id_ in ("abc-123", "uuid-like-value", "simple"):
@@ -491,10 +587,12 @@ class TestDebateEdgeCases:
     def test_round_without_arguments(self) -> None:
         """A round can exist without any arguments (before agents have spoken)."""
         round_ = Round(round_number=1)
-        assert round_.pro_argument is None
-        assert round_.con_argument is None
+        assert round_.pro_opening is None
+        assert round_.con_opening is None
+        assert round_.moderator_intro is None
         assert round_.moderator_summary is None
         assert round_.moderator_steer is None
+        assert round_.cross_examination == []
 
     def test_created_at_timezone_is_utc(self) -> None:
         debate = Debate(id="tz-1", topic="Test.")

@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createDebateApi, startDebateApi, getDebateApi } from "../services/api";
-import type { DebateResponse } from "../types/debate";
+import type { DebateConfig, DebateResponse } from "../types/debate";
 
 interface UseDebateResult {
   debate: DebateResponse | null;
   loading: boolean;
   error: string | null;
-  createDebate: (topic: string) => Promise<DebateResponse | null>;
+  createDebate: (config: DebateConfig) => Promise<DebateResponse | null>;
 }
 
 export function useDebate(debateId?: string): UseDebateResult {
@@ -16,7 +16,6 @@ export function useDebate(debateId?: string): UseDebateResult {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedRef = useRef(false);
 
-  // ── DebatePage flow: start the debate, then poll for progress ──
   useEffect(() => {
     if (!debateId) return;
     if (startedRef.current) return;
@@ -27,11 +26,9 @@ export function useDebate(debateId?: string): UseDebateResult {
       setError(null);
 
       try {
-        // Start the debate (non-blocking — returns IN_PROGRESS immediately)
         const started = await startDebateApi(debateId);
         setDebate(started);
 
-        // Poll every 1.5s while the debate is in progress
         pollingRef.current = setInterval(async () => {
           try {
             const data = await getDebateApi(debateId);
@@ -57,13 +54,12 @@ export function useDebate(debateId?: string): UseDebateResult {
     };
   }, [debateId]);
 
-  // ── HomePage flow: create a new debate ──
   const createDebate = useCallback(
-    async (topic: string): Promise<DebateResponse | null> => {
+    async (config: DebateConfig): Promise<DebateResponse | null> => {
       setLoading(true);
       setError(null);
       try {
-        const created = await createDebateApi(topic);
+        const created = await createDebateApi(config);
         setDebate(created);
         return created;
       } catch (err) {

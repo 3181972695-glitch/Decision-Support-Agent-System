@@ -93,6 +93,7 @@ class TestLLMServiceCreation:
         assert svc._config.base_url in (
             "https://api.openai.com/v1",
             "https://api.deepseek.com",
+            "https://api.deepseek.com/v1",
         )
         assert isinstance(svc._config.model, str)
         assert svc._config.max_tokens > 0
@@ -236,13 +237,17 @@ class TestSuccessfulGeneration:
 
     @pytest.mark.asyncio
     async def test_empty_content_response(self, mock_openai: MagicMock) -> None:
-        """When the model returns None content, we get an empty string back."""
+        """When the model returns None content, we fall back to fallback
+        text after retries exhaust rather than returning empty string."""
         resp = _successful_response(content=None)  # type: ignore[arg-type]
         mock_openai.chat.completions.create.return_value = resp
         svc = LLMService()
 
         result = await svc.generate(prompt="Test")
-        assert result == ""
+        # After retry exhaustion, the fallback text is returned
+        assert result != ""
+        assert isinstance(result, str)
+        assert len(result) > 10
 
 
 # =================================================================
@@ -350,17 +355,13 @@ class TestLogging:
         with caplog.at_level(logging.INFO):
             await svc.generate(system_prompt="Be concise.", prompt="Explain AI.")
 
-        # Check request log
-        request_logs = [r for r in caplog.records if "LLM request" in r.getMessage()]
-        assert len(request_logs) == 1
-        assert "model=gpt-4o-mini" in request_logs[0].getMessage()
-
-        # Check response log
-        response_logs = [r for r in caplog.records if "LLM response" in r.getMessage()]
-        assert len(response_logs) == 1
-        msg = response_logs[0].getMessage()
-        assert "finish_reason=stop" in msg
-        assert "output 99)" in msg or "output 99 " in msg
+        # Check profiling log
+        profile_logs = [r for r in caplog.records if "LLM_PROFILE" in r.getMessage()]
+        assert len(profile_logs) == 1
+        msg = profile_logs[0].getMessage()
+        assert "model=gpt-4o-mini" in msg
+        assert "input=55" in msg
+        assert "output=99" in msg
 
     @pytest.mark.asyncio
     async def test_logs_errors(
@@ -483,3 +484,147 @@ class TestLLMServiceEdgeCases:
         # The openai.AsyncOpenAI constructor was already patched via fixture
         # but we can verify through _get_client
         assert svc._client is not None
+
+
+# =================================================================
+#  Retry behaviour
+# =================================================================
+
+
+class TestRetryBehaviour:
+    """Retry logic for transient LLM failures."""
+
+    @pytest.mark.asyncio
+    async def test_retry_succeeds_on_second_attempt(
+        self, mock_openai: MagicMock
+    ) -> None:
+        """APIConnectionError is retried; success on second attempt is returned."""
+
+        mock_request = MagicMock()
+        mock_openai.chat.completions.create.side_effect = [
+            openai.APIConnectionError(message="timeout", request=mock_request),
+            _successful_response(content="Recovered!"),
+        ]
+        svc = LLMService()
+
+        result = await svc.generate(prompt="Test")
+
+        assert result == "Recovered!"
+        assert mock_openai.chat.completions.create.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retry_exhausted_connection_error(
+        self, mock_openai: MagicMock
+    ) -> None:
+        """After MAX_RETRIES+1 attempts, connection error is still raised as LLMError."""
+        mock_request = MagicMock()
+        mock_openai.chat.completions.create.side_effect = openai.APIConnectionError(
+            message="persistent failure",
+            request=mock_request,
+        )
+        svc = LLMService()
+
+        with pytest.raises(LLMError) as exc:
+            await svc.generate(prompt="Test")
+
+        assert "Cannot reach" in str(exc.value)
+        # Called twice: initial + 1 retry
+        assert mock_openai.chat.completions.create.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retry_exhausted_rate_limit(self, mock_openai: MagicMock) -> None:
+        """RateLimitError is retried, then raised as LLMError after exhaustion."""
+        mock_openai.chat.completions.create.side_effect = openai.RateLimitError(
+            "too many requests",
+            response=MagicMock(status_code=429),
+            body=None,
+        )
+        svc = LLMService()
+
+        with pytest.raises(LLMError) as exc:
+            await svc.generate(prompt="Test")
+
+        assert "rate limit" in str(exc.value).lower()
+        assert mock_openai.chat.completions.create.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retry_5xx_status(self, mock_openai: MagicMock) -> None:
+        """5xx APIStatusError is retried, then raised as LLMError after exhaustion."""
+        mock_openai.chat.completions.create.side_effect = openai.APIStatusError(
+            "server error",
+            response=MagicMock(status_code=500),
+            body=None,
+        )
+        svc = LLMService()
+
+        with pytest.raises(LLMError) as exc:
+            await svc.generate(prompt="Test")
+
+        assert "500" in str(exc.value)
+        assert mock_openai.chat.completions.create.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_no_retry_on_authentication_error(
+        self, mock_openai: MagicMock
+    ) -> None:
+        """AuthenticationError is NOT retried — raised immediately."""
+        mock_openai.chat.completions.create.side_effect = openai.AuthenticationError(
+            "bad key",
+            response=MagicMock(status_code=401),
+            body=None,
+        )
+        svc = LLMService()
+
+        with pytest.raises(LLMError) as exc:
+            await svc.generate(prompt="Test")
+
+        assert "API key" in str(exc.value)
+        assert mock_openai.chat.completions.create.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_no_retry_on_4xx_status(self, mock_openai: MagicMock) -> None:
+        """4xx APIStatusError is NOT retried — raised immediately."""
+        mock_openai.chat.completions.create.side_effect = openai.APIStatusError(
+            "bad request",
+            response=MagicMock(status_code=400),
+            body=None,
+        )
+        svc = LLMService()
+
+        with pytest.raises(LLMError) as exc:
+            await svc.generate(prompt="Test")
+
+        assert "400" in str(exc.value)
+        assert mock_openai.chat.completions.create.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_no_retry_on_generic_openai_error(
+        self, mock_openai: MagicMock
+    ) -> None:
+        """Generic OpenAIError (not in the retryable list) is NOT retried."""
+        mock_openai.chat.completions.create.side_effect = openai.OpenAIError(
+            "unknown error"
+        )
+        svc = LLMService()
+
+        with pytest.raises(LLMError) as exc:
+            await svc.generate(prompt="Test")
+
+        assert "Unexpected" in str(exc.value)
+        assert mock_openai.chat.completions.create.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_retry_then_success_on_5xx(self, mock_openai: MagicMock) -> None:
+        """5xx then success: retry recovers on the second attempt."""
+        mock_openai.chat.completions.create.side_effect = [
+            openai.APIStatusError(
+                "server error", response=MagicMock(status_code=503), body=None
+            ),
+            _successful_response(content="Recovered after 503."),
+        ]
+        svc = LLMService()
+
+        result = await svc.generate(prompt="Test")
+
+        assert result == "Recovered after 503."
+        assert mock_openai.chat.completions.create.await_count == 2

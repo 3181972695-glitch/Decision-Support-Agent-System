@@ -43,6 +43,14 @@ class AgentRegistry:
         return cls._registry[role]
 
     @classmethod
+    def get_role_for_agent(cls, agent_cls: type[BaseAgent]) -> str | None:
+        """Reverse lookup: find the role name registered for an agent class."""
+        for role, cls in cls._registry.items():
+            if cls is agent_cls:
+                return role
+        return None
+
+    @classmethod
     def list_roles(cls) -> list[str]:
         """Return all registered agent role names."""
         return list(cls._registry)

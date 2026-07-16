@@ -1,34 +1,16 @@
-"""Pro Agent — argues in favour of the debate topic."""
+"""Pro Agent — argues for the assigned stance within the debate."""
 
-from app.agents.base import AgentContext, BaseAgent
+from app.agents.base import BaseAgent
 from app.agents.registry import AgentRegistry
+from app.prompts.pro import SYSTEM_PROMPT
 
 
 @AgentRegistry.register("pro")
 class ProAgent(BaseAgent):
-    """Persuasive agent arguing FOR the topic."""
+    """Persuasive agent arguing FOR the assigned stance.
 
-    SYSTEM_PROMPT = (
-        "You are a persuasive and well-reasoned advocate. "
-        "Your role is to argue FOR the given decision topic. "
-        "Present 3-4 logical, evidence-backed points. "
-        "Be constructive, respectful, and convincing."
-    )
+    Prompt construction is handled entirely by PromptBuilder.
+    SYSTEM_PROMPT is defined in app/prompts/pro.py.
+    """
 
-    def build_prompt(self, context: AgentContext) -> str:
-        prompt_lines = [f"Debate topic: {context.topic}"]
-        prompt_lines.append(f"Round: {context.round_number}")
-        prompt_lines.append("Your position: FOR")
-
-        if context.moderator_steer:
-            prompt_lines.append(f"\nModerator's steer: {context.moderator_steer}")
-
-        if context.previous_rounds:
-            prompt_lines.append("\nPrevious round context:")
-            for r in context.previous_rounds:
-                prompt_lines.append(str(r))
-
-        prompt_lines.append(
-            "\nConstruct your argument for why the user should pursue this decision."
-        )
-        return "\n".join(prompt_lines)
+    SYSTEM_PROMPT = SYSTEM_PROMPT

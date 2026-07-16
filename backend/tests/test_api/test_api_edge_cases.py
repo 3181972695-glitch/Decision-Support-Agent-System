@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -23,6 +23,7 @@ from app.storage.in_memory import InMemoryDebateRepository
 def mock_llm() -> LLMService:
     svc = LLMService()
     svc.generate = AsyncMock(return_value="Mocked LLM response.")
+    svc.generate_stream = Mock(side_effect=NotImplementedError("Streaming not mocked"))
     return svc
 
 
@@ -41,6 +42,21 @@ def client(test_service: DebateService) -> TestClient:
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+def _poll_until_done(client: TestClient, debate_id: str, timeout: float = 10.0) -> dict:
+    import time
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        resp = client.get(f"/api/debates/{debate_id}")
+        data = resp.json()
+        if data["status"] in ("completed", "error"):
+            return data
+        if data.get("awaiting_input"):
+            client.post(f"/api/debates/{debate_id}/continue")
+        time.sleep(0.2)
+    raise TimeoutError(f"Debate {debate_id} did not finish within {timeout}s")
 
 
 # =================================================================
@@ -134,18 +150,11 @@ class TestGetRoundEdgeCases:
     """Edge cases for GET /api/debates/{id}/rounds/{n}"""
 
     def test_get_round_after_start(self, client: TestClient) -> None:
-        created = client.post("/api/debates/", json={"topic": "Test"}).json()
+        created = client.post(
+            "/api/debates/", json={"topic": "Test", "max_rounds": 1}
+        ).json()
         _ = client.post(f"/api/debates/{created['id']}/start")
-
-        import time
-
-        deadline = time.time() + 5
-        while time.time() < deadline:
-            data = client.get(f"/api/debates/{created['id']}").json()
-            if data["status"] in ("completed", "error"):
-                break
-            time.sleep(0.2)
-
+        _poll_until_done(client, created["id"])
         resp = client.get(f"/api/debates/{created['id']}/rounds/1")
         assert resp.status_code == 200
         assert resp.json()["round_number"] == 1
