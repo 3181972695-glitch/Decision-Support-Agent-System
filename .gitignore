@@ -50,3 +50,4 @@ htmlcov/
 # ── Project ──────────────────────────────────────────────────────
 .claude/worktrees/
 .claude/scheduled_tasks.json
+*.db
