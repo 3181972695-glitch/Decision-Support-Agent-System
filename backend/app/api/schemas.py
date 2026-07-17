@@ -36,6 +36,10 @@ class DebateCreate(BaseModel):
         default=True,
         description="Enable moderator introductions and summaries",
     )
+    enable_user_questions: bool = Field(
+        default=False,
+        description="Enable user questions to Pro and Con after each round",
+    )
     model_config = {
         "json_schema_extra": {
             "example": {
@@ -116,3 +120,9 @@ class DebateResponse(BaseModel):
 class ErrorResponse(BaseModel):
     detail: str
     error_code: str | None = None
+
+
+class QuestionsSubmit(BaseModel):
+    """Optional user questions submitted during a debate pause."""
+    pro_question: str = Field(default="", description="Question for the Pro agent")
+    con_question: str = Field(default="", description="Question for the Con agent")

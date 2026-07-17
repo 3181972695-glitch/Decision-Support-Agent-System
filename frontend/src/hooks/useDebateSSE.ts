@@ -38,6 +38,7 @@ interface UseDebateSSEResult {
   debate: DebateResponse | null;
   loading: boolean;
   error: string | null;
+  updateDebate: (updater: DebateResponse | ((prev: DebateResponse | null) => DebateResponse | null)) => void;
 }
 
 export function useDebateSSE(debateId: string): UseDebateSSEResult {
@@ -463,7 +464,7 @@ export function useDebateSSE(debateId: string): UseDebateSSEResult {
     };
   }, [debateId, startPolling, stopPolling]);
 
-  return { debate, loading, error };
+  return { debate, loading, error, updateDebate: setDebate };
 }
 
 // ═══════════════════════════════════════════════════════════════

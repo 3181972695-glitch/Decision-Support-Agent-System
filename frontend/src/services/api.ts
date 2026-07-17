@@ -39,6 +39,20 @@ export function continueDebateApi(debateId: string): Promise<DebateResponse> {
   });
 }
 
+export function submitQuestionsApi(
+  debateId: string,
+  proQuestion: string,
+  conQuestion: string,
+): Promise<DebateResponse> {
+  return request(`/debates/${debateId}/questions`, {
+    method: "POST",
+    body: JSON.stringify({
+      pro_question: proQuestion,
+      con_question: conQuestion,
+    }),
+  });
+}
+
 export interface PerformanceSummary {
   debate_id: string;
   status: string;

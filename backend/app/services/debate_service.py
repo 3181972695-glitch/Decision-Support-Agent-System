@@ -26,6 +26,7 @@ from app.domain.debate import (
     Debate,
     Round,
     RoundMemory,
+    UserQuestionQA,
     Verdict,
 )
 from app.domain.enums import AgentRole, DebateStatus, ResponseType
@@ -140,6 +141,8 @@ class DebateService:
                 display_role = "pro-question"
             elif context.response_type == ResponseType.CROSS_EXAMINE_ANSWER:
                 display_role = "pro-answer"
+            elif context.response_type == ResponseType.USER_ANSWER:
+                display_role = "user-answer-pro"
         elif role == "con":
             if context.response_type == ResponseType.REBUTTAL:
                 display_role = "con-rebuttal"
@@ -147,6 +150,8 @@ class DebateService:
                 display_role = "con-question"
             elif context.response_type == ResponseType.CROSS_EXAMINE_ANSWER:
                 display_role = "con-answer"
+            elif context.response_type == ResponseType.USER_ANSWER:
+                display_role = "user-answer-con"
 
         agent = self._agent(role)
         self._emit(
@@ -269,14 +274,17 @@ class DebateService:
         max_rounds: int = 3,
         enable_cross_exam: bool = True,
         enable_moderator: bool = True,
+        enable_user_questions: bool = False,
     ) -> Debate:
         debate = Debate(id=str(uuid4()), topic=topic, max_rounds=max_rounds)
         debate._enable_cross_exam = enable_cross_exam  # type: ignore[attr-defined]
         debate._enable_moderator = enable_moderator  # type: ignore[attr-defined]
+        debate._enable_user_questions = enable_user_questions  # type: ignore[attr-defined]
         await self._repo.save(debate)
         logger.info(
-            "Created debate %s: topic=%r max_rounds=%d cross_exam=%s moderator=%s",
+            "Created debate %s: topic=%r max_rounds=%d cross_exam=%s moderator=%s user_questions=%s",
             debate.id, topic[:60], max_rounds, enable_cross_exam, enable_moderator,
+            enable_user_questions,
         )
         return debate
 
@@ -475,6 +483,89 @@ class DebateService:
 
     async def save_debate(self, debate: Debate) -> None:
         await self._repo.save(debate)
+
+    async def submit_questions(
+        self,
+        debate_id: str,
+        pro_question: str = "",
+        con_question: str = "",
+    ) -> Debate:
+        """Submit optional user questions during a debate pause.
+
+        Generates answers from the respective agents and stores them
+        as UserQuestionQA on the current (latest) round.
+        If the debate is not awaiting input, or there are no questions,
+        this is a no-op.
+        """
+        debate = await self._repo.get(debate_id)
+        if not debate:
+            raise DebateNotFoundError(debate_id)
+        if not debate.awaiting_input:
+            logger.warning("[QUESTIONS] debate=%s not awaiting_input, ignoring", debate_id)
+            return debate
+
+        current_round = debate.latest_round()
+        if not current_round:
+            logger.warning("[QUESTIONS] debate=%s no rounds yet, ignoring", debate_id)
+            return debate
+
+        if not pro_question.strip() and not con_question.strip():
+            return debate
+
+        language = detect_language(debate.topic)
+        res_pro_stance, res_con_stance = self._resolve_stance(debate.topic)
+        round_num = current_round.round_number
+
+        if pro_question.strip():
+            pro_ctx = AgentContext(
+                topic=debate.topic,
+                round_number=round_num,
+                response_type=ResponseType.USER_ANSWER,
+                previous_rounds=debate.rounds,
+                debate_id=debate.id,
+                language=language,
+                stance=res_pro_stance,
+                opponent_name=res_con_stance or "the opposing side",
+                role="pro",
+                cross_target=pro_question.strip(),
+            )
+            pro_answer = await self._stream_agent(
+                "pro", pro_ctx, debate.id, round_num,
+                max_tokens=self._resolve_max_tokens(ResponseType.USER_ANSWER),
+            )
+            current_round.user_questions.append(
+                UserQuestionQA(target_role=AgentRole.PRO, question=pro_question.strip(), answer=pro_answer)
+            )
+
+        if con_question.strip():
+            con_ctx = AgentContext(
+                topic=debate.topic,
+                round_number=round_num,
+                response_type=ResponseType.USER_ANSWER,
+                previous_rounds=debate.rounds,
+                debate_id=debate.id,
+                language=language,
+                stance=res_con_stance,
+                opponent_name=res_pro_stance or "the proposing side",
+                role="con",
+                cross_target=con_question.strip(),
+            )
+            con_answer = await self._stream_agent(
+                "con", con_ctx, debate.id, round_num,
+                max_tokens=self._resolve_max_tokens(ResponseType.USER_ANSWER),
+            )
+            current_round.user_questions.append(
+                UserQuestionQA(target_role=AgentRole.CON, question=con_question.strip(), answer=con_answer)
+            )
+
+        await self._repo.save(debate)
+        logger.info(
+            "[QUESTIONS] debate=%s round=%d pro_q=%s con_q=%s user_questions=%d",
+            debate_id, round_num,
+            bool(pro_question.strip()), bool(con_question.strip()),
+            len(current_round.user_questions),
+        )
+        return debate
 
 
     # ── Stance resolution ──────────────────────────────────────────

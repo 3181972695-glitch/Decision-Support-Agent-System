@@ -7,6 +7,7 @@ export interface DebateConfig {
   max_rounds: number;
   enable_cross_exam: boolean;
   enable_moderator: boolean;
+  enable_user_questions: boolean;
 }
 
 export interface ArgumentResponse {

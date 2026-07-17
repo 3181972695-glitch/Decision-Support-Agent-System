@@ -20,6 +20,7 @@ function TopicForm({ onSubmit, loading }: TopicFormProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [enableCrossExam, setEnableCrossExam] = useState(true);
   const [enableModerator, setEnableModerator] = useState(true);
+  const [enableUserQuestions, setEnableUserQuestions] = useState(false);
   const [moderatorModel, setModeratorModel] = useState("");
   const [argumentModel, setArgumentModel] = useState("");
   const [judgeModel, setJudgeModel] = useState("");
@@ -32,6 +33,7 @@ function TopicForm({ onSubmit, loading }: TopicFormProps) {
         max_rounds: maxRounds,
         enable_cross_exam: enableCrossExam,
         enable_moderator: enableModerator,
+        enable_user_questions: enableUserQuestions,
         moderator_model: moderatorModel || undefined,
         argument_model: argumentModel || undefined,
         judge_model: judgeModel || undefined,
@@ -98,6 +100,16 @@ function TopicForm({ onSubmit, loading }: TopicFormProps) {
             />
             <span>Moderator</span>
             <small>Introductions and summaries for each round</small>
+          </label>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={enableUserQuestions}
+              onChange={(e) => setEnableUserQuestions(e.target.checked)}
+              disabled={loading}
+            />
+            <span>User questions</span>
+            <small>Ask a question to each side after every round</small>
           </label>
 
           <div className="model-selector">

@@ -14,6 +14,7 @@ from app.api.schemas import (
     DebateCreate,
     DebateResponse,
     DebateStatusEnum,
+    QuestionsSubmit,
     RoundResponse,
     UserQuestionResponse,
     VerdictResponse,
@@ -173,6 +174,7 @@ async def create_debate(
         max_rounds=payload.max_rounds,
         enable_cross_exam=payload.enable_cross_exam,
         enable_moderator=payload.enable_moderator,
+        enable_user_questions=payload.enable_user_questions,
     )
     logger.info(
         "Created debate %s: topic=%r  max_rounds=%d  cross_exam=%s  moderator=%s",
@@ -242,6 +244,30 @@ async def continue_debate(
     logger.info("[TRACE] >>> HTTP POST /continue debate=%s <<<", debate_id)
     try:
         debate = await service.continue_debate(debate_id)
+    except DebateNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return _debate_to_response(debate)
+
+
+@router.post("/{debate_id}/questions", response_model=DebateResponse)
+async def submit_questions(
+    debate_id: str,
+    payload: QuestionsSubmit,
+    service: DebateService = Depends(get_debate_service),
+):
+    """Submit optional user questions during a debate pause.
+
+    Generates answers from the Pro and Con agents and stores them
+    on the current round. Call this before POST /continue.
+    """
+    logger.info("[TRACE] >>> HTTP POST /questions debate=%s <<<", debate_id)
+    try:
+        debate = await service.submit_questions(
+            debate_id,
+            pro_question=payload.pro_question,
+            con_question=payload.con_question,
+        )
     except DebateNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

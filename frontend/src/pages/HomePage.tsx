@@ -10,6 +10,10 @@ function HomePage() {
   const handleSubmit = async (config: DebateConfig) => {
     const debate = await createDebate(config);
     if (debate) {
+      sessionStorage.setItem(
+        `debate-config-${debate.id}`,
+        JSON.stringify({ enable_user_questions: config.enable_user_questions }),
+      );
       navigate(`/debate/${debate.id}`);
     }
   };

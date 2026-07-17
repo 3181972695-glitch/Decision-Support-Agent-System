@@ -8,7 +8,7 @@ import VerdictCard from "../components/VerdictCard";
 import AnalyticsPanel from "../components/AnalyticsPanel";
 import ReplayControls from "../components/ReplayControls";
 import ErrorBoundary from "../components/ErrorBoundary";
-import { continueDebateApi } from "../services/api";
+import { continueDebateApi, submitQuestionsApi } from "../services/api";
 import { useDebateSSE } from "../hooks/useDebateSSE";
 import type { ProgressStep } from "../types/debate";
 
@@ -91,9 +91,18 @@ function buildTimeline(debate: {
 
 function DebatePage() {
   const { debateId } = useParams<{ debateId: string }>();
-  const { debate, loading } = useDebateSSE(debateId!);
+  const { debate, loading, updateDebate } = useDebateSSE(debateId!);
   const roundCount = debate?.rounds.length ?? 0;
   const maxRounds = debate?.max_rounds ?? 3;
+
+  // Read debate config from sessionStorage (set by HomePage)
+  const debateConfigStr = debateId ? sessionStorage.getItem(`debate-config-${debateId}`) : null;
+  const debateConfig = debateConfigStr ? JSON.parse(debateConfigStr) : null;
+  const enableUserQuestions = debateConfig?.enable_user_questions ?? false;
+
+  // User question state
+  const [proQuestion, setProQuestion] = useState("");
+  const [conQuestion, setConQuestion] = useState("");
 
   // Replay state
   const [replayMode, setReplayMode] = useState(false);
@@ -188,11 +197,21 @@ function DebatePage() {
       "debateId=" + debateId,
       "awaiting_input=" + debate?.awaiting_input,
       "isAwaitingInput=" + isAwaitingInput,
+      "enableUserQuestions=" + enableUserQuestions,
       "timestamp=" + new Date().toISOString(),
     );
     if (!debateId || continuePending) return;
     setContinuePending(true);
     try {
+      // If user questions are enabled and there are non-empty questions, submit them first
+      if (enableUserQuestions && (proQuestion.trim() || conQuestion.trim())) {
+        console.log("[XDIAG] CONTINUE_REQ-" + reqId + " SUBMITTING_QUESTIONS");
+        const afterQuestions = await submitQuestionsApi(debateId, proQuestion.trim(), conQuestion.trim());
+        updateDebate(afterQuestions);
+        setProQuestion("");
+        setConQuestion("");
+        console.log("[XDIAG] CONTINUE_REQ-" + reqId + " QUESTIONS_DONE");
+      }
       console.log("[XDIAG] CONTINUE_REQ-" + reqId + " SENDING");
       await continueDebateApi(debateId);
       console.log("[XDIAG] CONTINUE_REQ-" + reqId + " SUCCESS");
@@ -295,6 +314,33 @@ function DebatePage() {
         {isInProgress && roundCount === 0 && (
           <div className="waiting-card">
             <p>Waiting for the first round to complete...</p>
+          </div>
+        )}
+
+        {isAwaitingInput && enableUserQuestions && (
+          <div className="questions-panel">
+            <div className="question-field">
+              <label htmlFor="pro-question">Question for Pro:</label>
+              <textarea
+                id="pro-question"
+                value={proQuestion}
+                onChange={(e) => setProQuestion(e.target.value)}
+                placeholder="Optional — ask the Pro side a question..."
+                rows={2}
+                disabled={continuePending}
+              />
+            </div>
+            <div className="question-field">
+              <label htmlFor="con-question">Question for Con:</label>
+              <textarea
+                id="con-question"
+                value={conQuestion}
+                onChange={(e) => setConQuestion(e.target.value)}
+                placeholder="Optional — ask the Con side a question..."
+                rows={2}
+                disabled={continuePending}
+              />
+            </div>
           </div>
         )}
 
