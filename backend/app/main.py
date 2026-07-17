@@ -11,9 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 import app.agents  # noqa: F401
 
 from app.api.debates import router as debates_router
+from app.api.routes.expert import router as expert_router
 from app.api.sse import router as sse_router
 from app.config import settings
 from app.services.debate_service import DebateService
+from app.services.expert_service import ExpertService
 from app.services.llm_service import LLMService
 from app.storage import create_repository as _create_repo
 
@@ -27,13 +29,15 @@ logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize storage and service on startup."""
+    """Initialize storage and services on startup."""
     repo = await _create_repo()
+    llm_service = LLMService()
     app.state.debate_service = DebateService(
         repository=repo,
-        llm_service=LLMService(),
+        llm_service=llm_service,
         agent_models=settings.AGENT_MODELS,
     )
+    app.state.expert_service = ExpertService(llm_service=llm_service)
     yield
 
 
@@ -54,6 +58,7 @@ app.add_middleware(
 
 app.include_router(debates_router, prefix="/api")
 app.include_router(sse_router, prefix="/api")
+app.include_router(expert_router, prefix="/api")
 
 
 @app.get("/health")

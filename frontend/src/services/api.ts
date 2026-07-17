@@ -79,3 +79,29 @@ export interface PerformanceSummary {
 export function getPerformanceApi(debateId: string): Promise<PerformanceSummary> {
   return request(`/debates/${debateId}/performance`);
 }
+
+// ── Expert Mode ───────────────────────────────────────────────────
+
+export interface ExpertRequest {
+  mode: string;
+  question: string;
+}
+
+export interface ExpertAnalysis {
+  role: string;
+  analysis: string;
+}
+
+export interface ExpertResponse {
+  mode: string;
+  question: string;
+  experts: ExpertAnalysis[];
+  final_decision: string;
+}
+
+export function expertAnalyzeApi(payload: ExpertRequest): Promise<ExpertResponse> {
+  return request("/expert/analyze", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

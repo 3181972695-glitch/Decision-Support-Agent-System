@@ -1243,3 +1243,107 @@ section h2:first-child {
   color: #4b5563;
   background: #fff;
 }
+
+/* ── Expert Select ──────────────────────────────────────────────── */
+.expert-select {
+  padding: 0.75rem 0.9rem;
+  font-size: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+}
+
+.expert-select:focus {
+  border-color: #6366f1;
+}
+
+/* ── Expert Result ──────────────────────────────────────────────── */
+.expert-result {
+  margin: 1.5rem 0;
+}
+
+.expert-result__header h2 {
+  font-size: 1.4rem;
+  color: #1a1a2e;
+  margin: 0 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.expert-result__experts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.message--expert-0 {
+  background: #eef2ff;
+  border-left-color: #6366f1;
+}
+
+.message--expert-1 {
+  background: #f0fdf4;
+  border-left-color: #22c55e;
+}
+
+.message--expert-2 {
+  background: #fefce8;
+  border-left-color: #eab308;
+}
+
+/* ── Expert Decision (synthesis) ────────────────────────────────── */
+.expert-decision {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: #f9fafb;
+  border: 2px solid #6366f1;
+  border-radius: 10px;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.expert-decision h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  color: #4338ca;
+}
+
+.expert-decision p {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.7;
+  color: #374151;
+}
+
+/* ── Navigation bar ─────────────────────────────────────────────── */
+.nav-bar {
+  display: flex;
+  gap: 0;
+  background: #1a1a2e;
+  padding: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-bar__link {
+  display: block;
+  padding: 0.6rem 1.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #a5b4fc;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s;
+  letter-spacing: 0.03em;
+}
+
+.nav-bar__link:hover {
+  background: #2d2d5e;
+  color: #fff;
+}
+
+.nav-bar__link:first-child {
+  border-right: 1px solid #2d2d5e;
+}
