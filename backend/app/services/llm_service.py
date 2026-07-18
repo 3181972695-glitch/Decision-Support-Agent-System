@@ -18,6 +18,8 @@ from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from typing import Any
 
+import time
+
 import openai
 
 from app.config import settings
@@ -209,11 +211,39 @@ def _fallback_text(response_type: str | None = None) -> str:
 class LLMService:
     """Wraps an OpenAI-compatible LLM API behind a simple interface."""
 
+    CACHE_TTL = 300  # seconds (5 minutes)
+    CACHE_MAX_SIZE = 256
+
     def __init__(self, config: LLMConfig | None = None) -> None:
         self._config = config or LLMConfig()
         self._client: openai.AsyncOpenAI | None = None
         self._profiler: LLMProfiler | None = None
         self._timeout: float = DEFAULT_TIMEOUT
+        # response cache: key -> (timestamp, result)
+        self._cache: dict[str, tuple[float, str]] = {}
+
+    def _get_cached(self, key: str) -> str | None:
+        """Get cached response if not expired."""
+        now = time.time()
+        entry = self._cache.get(key)
+        if entry is not None:
+            ts, result = entry
+            if now - ts < self.CACHE_TTL:
+                return result
+            del self._cache[key]
+        return None
+
+    def _set_cache(self, key: str, result: str) -> None:
+        """Store response in cache, evicting oldest if full."""
+        if len(self._cache) >= self.CACHE_MAX_SIZE:
+            oldest_key = min(self._cache, key=lambda k: self._cache[k][0])
+            del self._cache[oldest_key]
+        self._cache[key] = (time.time(), result)
+
+    def clear_cache(self) -> None:
+        """Clear the response cache."""
+        self._cache.clear()
+        logger.info("[LLM_CACHE] cleared")
 
     def start_profiler(self) -> LLMProfiler:
         """Begin a new profiling session. Returns the profiler instance."""
@@ -246,6 +276,15 @@ class LLMService:
             self._log_profile(profile)
             return result
 
+        # Check response cache
+        cache_key = f"{system_prompt}|{prompt}|{effective_model}"
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            logger.info("[LLM_CACHE] hit role=%s model=%s prompt_len=%d", role, effective_model, prompt_len)
+            self._finish_profile(profile)
+            self._log_profile(profile)
+            return cached
+
         messages: list[dict[str, str]] = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
@@ -277,6 +316,8 @@ class LLMService:
             profile=profile,
             response_type=response_type,
         )
+        # Store in response cache
+        self._set_cache(cache_key, content)
         self._finish_profile(profile)
         self._log_profile(profile)
         return content
