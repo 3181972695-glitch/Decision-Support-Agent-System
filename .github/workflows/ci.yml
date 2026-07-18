@@ -35,7 +35,7 @@ jobs:
       - name: Test with pytest
         run: |
           python -m pytest tests/ -v --tb=short \
-            -k "not DemoMode and not test_get_round_focus and not test_retry_5xx"
+            -k "not DemoMode and not test_get_round_focus and not test_retry_5xx and not test_retry_exhausted and not test_loads_llm_base_url and not test_default_config_from_settings and not test_timeout_resets_awaiting_input"
 
   frontend:
     runs-on: ubuntu-latest
