@@ -1499,3 +1499,36 @@ section h2:first-child {
   margin-bottom: 0.2rem;
   line-height: 1.4;
 }
+
+/* ── Confidence reasons & uncertainties ────────────────────────── */
+.ed-judge__reasons,
+.ed-judge__uncertainties {
+  padding: 0.75rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.ed-judge__reasons strong,
+.ed-judge__uncertainties strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.ed-judge__reasons strong { color: #15803d; }
+.ed-judge__uncertainties strong { color: #b45309; }
+
+.ed-judge__reasons ul,
+.ed-judge__uncertainties ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.ed-judge__reasons li,
+.ed-judge__uncertainties li {
+  font-size: 0.9rem;
+  color: #374151;
+  margin-bottom: 0.2rem;
+  line-height: 1.4;
+}

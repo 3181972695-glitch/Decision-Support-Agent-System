@@ -55,6 +55,8 @@ async def test_software_mode_returns_correct_structure(service: ExpertDebateServ
     assert len(result["final_decision"]) > 0
     assert isinstance(result["confidence"], int)
     assert 0 <= result["confidence"] <= 100
+    assert isinstance(result.get("confidence_reason"), list)
+    assert isinstance(result.get("uncertainties"), list)
 
 
 @pytest.mark.asyncio
@@ -130,6 +132,8 @@ async def test_judge_confidence_is_parsed(service: ExpertDebateService) -> None:
                 "After reviewing all perspectives, I recommend a phased migration.\n"
                 "FINAL:Proceed with a phased migration starting with the billing module\n"
                 "CONFIDENCE:78\n"
+                "CONFIDENCE_REASON:Experts agree on need for change|Migration risks are well understood|Gradual approach reduces unknowns\n"
+                "UNCERTAINTIES:Team size unknown|Legacy debt unclear\n"
                 "TRADEOFFS:coupling vs autonomy|security perimeter expansion|team coordination overhead"
             )
         return "Some analysis.\nARGUMENTS:a|b|c"
@@ -140,6 +144,10 @@ async def test_judge_confidence_is_parsed(service: ExpertDebateService) -> None:
 
     result = await svc_local.debate("software", "Test?")
     assert result["confidence"] == 78
+    assert len(result["confidence_reason"]) == 3
+    assert result["confidence_reason"][0] == "Experts agree on need for change"
+    assert len(result["uncertainties"]) == 2
+    assert result["uncertainties"][0] == "Team size unknown"
     assert len(result["key_tradeoffs"]) == 3
     assert "final_decision" in result
     assert len(result["final_decision"]) > 0

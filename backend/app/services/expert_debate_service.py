@@ -158,13 +158,15 @@ class ExpertDebateService:
             judge_parts.append(f"\n{dr['speaker']} to {dr['response_to']}: {dr['content']}")
         judge_parts.append(
             "\n\nProvide your final assessment. "
-            "End with exactly one line:\n"
+            "End with exactly these lines:\n"
             "FINAL:your recommendation here\n"
-            "Then a line:\n"
             "CONFIDENCE:0-100\n"
-            "Then a line:\n"
+            "CONFIDENCE_REASON:reason1|reason2\n"
+            "UNCERTAINTIES:uncertainty1|uncertainty2\n"
             "TRADEOFFS:tradeoff1|tradeoff2|tradeoff3\n"
-            "where each tradeoff is a short phrase."
+            "where CONFIDENCE_REASON lists 1-3 reasons for your confidence level,\n"
+            "UNCERTAINTIES lists 1-3 remaining unknowns or assumptions,\n"
+            "and each tradeoff is a short phrase."
             f"{_NO_MD}{lang_suffix}"
         )
         judge_prompt = "\n".join(judge_parts)
@@ -182,14 +184,16 @@ class ExpertDebateService:
         # Parse the structured judge output
         final_decision = judge_text.strip()
         confidence = 50
+        confidence_reason: list[str] = []
+        uncertainties: list[str] = []
         tradeoffs: list[str] = []
 
         m = re.search(r'^FINAL:\s*(.*)$', judge_text, re.MULTILINE)
         if m:
             final_decision = m.group(1).strip()
-            # Remove the FINAL/CONFIDENCE/TRADEOFFS lines from the displayed text
+            # Remove the marker lines from the displayed text
             cleaned = re.sub(
-                r'^FINAL:.*$|^CONFIDENCE:.*$|^TRADEOFFS:.*$',
+                r'^FINAL:.*$|^CONFIDENCE:.*$|^CONFIDENCE_REASON:.*$|^UNCERTAINTIES:.*$|^TRADEOFFS:.*$',
                 '', judge_text, flags=re.MULTILINE,
             ).strip()
             if cleaned:
@@ -198,6 +202,14 @@ class ExpertDebateService:
         m = re.search(r'^CONFIDENCE:\s*(\d+)', judge_text, re.MULTILINE)
         if m:
             confidence = min(100, max(0, int(m.group(1))))
+
+        m = re.search(r'^CONFIDENCE_REASON:\s*(.*)$', judge_text, re.MULTILINE)
+        if m:
+            confidence_reason = [r.strip() for r in m.group(1).split("|") if r.strip()]
+
+        m = re.search(r'^UNCERTAINTIES:\s*(.*)$', judge_text, re.MULTILINE)
+        if m:
+            uncertainties = [u.strip() for u in m.group(1).split("|") if u.strip()]
 
         m = re.search(r'^TRADEOFFS:\s*(.*)$', judge_text, re.MULTILINE)
         if m:
@@ -210,5 +222,7 @@ class ExpertDebateService:
             "debate_rounds": debate_rounds,
             "final_decision": final_decision,
             "confidence": confidence,
+            "confidence_reason": confidence_reason,
+            "uncertainties": uncertainties,
             "key_tradeoffs": tradeoffs,
         }

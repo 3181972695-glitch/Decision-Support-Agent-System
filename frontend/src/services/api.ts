@@ -132,6 +132,8 @@ export interface ExpertDebateResponse {
   debate_rounds: DebateRound[];
   final_decision: string;
   confidence: number;
+  confidence_reason: string[];
+  uncertainties: string[];
   key_tradeoffs: string[];
 }
 

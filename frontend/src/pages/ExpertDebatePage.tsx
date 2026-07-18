@@ -207,6 +207,28 @@ function ExpertDebatePage() {
                   </span>
                 </div>
 
+                {result.confidence_reason && result.confidence_reason.length > 0 && (
+                  <div className="ed-judge__reasons">
+                    <strong>Confidence reasons:</strong>
+                    <ul>
+                      {result.confidence_reason.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {result.uncertainties && result.uncertainties.length > 0 && (
+                  <div className="ed-judge__uncertainties">
+                    <strong>Remaining uncertainties:</strong>
+                    <ul>
+                      {result.uncertainties.map((u, i) => (
+                        <li key={i}>{u}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 {result.key_tradeoffs && result.key_tradeoffs.length > 0 && (
                   <div className="ed-judge__tradeoffs">
                     <strong>Key trade-offs:</strong>

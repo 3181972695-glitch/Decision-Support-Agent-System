@@ -42,6 +42,8 @@ class ExpertDebateResponse(BaseModel):
     debate_rounds: list[DebateRound] = []
     final_decision: str
     confidence: int = 0
+    confidence_reason: list[str] = []
+    uncertainties: list[str] = []
     key_tradeoffs: list[str] = []
 
 
