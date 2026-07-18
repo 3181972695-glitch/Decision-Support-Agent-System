@@ -319,13 +319,16 @@ def parse_structured_output(judge_text: str) -> dict[str, Any]:
 
     m = re.search(r'^FINAL:\s*(.*)$', judge_text, re.MULTILINE)
     if m:
-        result["final_decision"] = m.group(1).strip()
+        parsed_decision = m.group(1).strip()
+        # Remove marker lines from the display text, keeping only
+        # content that came before them (intro context).
         cleaned = re.sub(
             r'^FINAL:.*$|^CONFIDENCE:.*$|^CONFIDENCE_REASON:.*$|^UNCERTAINTIES:.*$|^TRADEOFFS:.*$',
             '', judge_text, flags=re.MULTILINE,
         ).strip()
-        if cleaned:
-            result["final_decision"] = cleaned
+        # FINAL: parsed value takes priority. Only use cleaned text
+        # as fallback if the FINAL line was empty.
+        result["final_decision"] = parsed_decision if parsed_decision else (cleaned or judge_text.strip())
 
     m = re.search(r'^CONFIDENCE:\s*(\d+)', judge_text, re.MULTILINE)
     if m:

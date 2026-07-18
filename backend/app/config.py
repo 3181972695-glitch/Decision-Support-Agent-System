@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     OPENING_MAX_TOKENS: int = 3072
     REBUTTAL_MAX_TOKENS: int = 2048
     CROSS_EXAM_MAX_TOKENS: int = 2048
-    JUDGE_MAX_TOKENS: int = 8192
+    JUDGE_MAX_TOKENS: int = 16384
 
     # ── Context window ───────────────────────────────────────────
     # Maximum characters of previous round context to include.
