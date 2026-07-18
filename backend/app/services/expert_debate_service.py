@@ -128,6 +128,7 @@ class ExpertDebateService:
             judge_text = await self._llm.generate(
                 system_prompt=judge_system, prompt=judge_prompt,
                 role=f"expert-debate-{mode}-judge",
+                max_tokens=16384,
             )
         except Exception as exc:
             logger.warning("[EXPERT_DEBATE] judge error: %s", exc)

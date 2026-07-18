@@ -189,6 +189,7 @@ class StreamingExpertDebateService:
             async for chunk in self._llm.generate_stream(
                 system_prompt=judge_system, prompt=judge_prompt,
                 role=f"stream-debate-{mode}-judge",
+                max_tokens=16384,
             ):
                 judge_text += chunk
                 yield _sse("judge_chunk", {"content": chunk})
