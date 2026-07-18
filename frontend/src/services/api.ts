@@ -189,6 +189,17 @@ export function deleteMemoryApi(memoryId: number): Promise<void> {
   return request(`/memory/${memoryId}`, { method: "DELETE" });
 }
 
+export function updateMemoryApi(
+  memoryId: number,
+  content: string,
+  memoryType?: string,
+): Promise<MemoryItem> {
+  return request(`/memory/${memoryId}`, {
+    method: "PUT",
+    body: JSON.stringify({ content, memory_type: memoryType ?? "decision" }),
+  });
+}
+
 export function clearAllMemoriesApi(): Promise<{ deleted: number }> {
   return request("/memory/clear", { method: "DELETE" });
 }

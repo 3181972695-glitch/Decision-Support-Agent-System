@@ -79,6 +79,24 @@ async def create_memory(
     return mem
 
 
+@router.put("/{memory_id}", response_model=MemoryResponse)
+async def update_memory(
+    memory_id: int,
+    payload: MemoryCreate,
+    service: MemoryService = Depends(get_memory_service),
+):
+    """Update a memory's content and/or type."""
+    updated = service.update_memory(
+        memory_id, content=payload.content, memory_type=payload.memory_type,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Memory {memory_id} not found")
+    mem = service.get_memory(memory_id)
+    if mem is None:
+        raise HTTPException(status_code=500, detail="Failed to retrieve updated memory")
+    return mem
+
+
 @router.delete("/clear")
 async def clear_all_memories(
     user_id: str = "demo_user",

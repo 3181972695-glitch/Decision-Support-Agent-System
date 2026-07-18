@@ -3,6 +3,7 @@ import {
   listMemoriesApi,
   createMemoryApi,
   deleteMemoryApi,
+  updateMemoryApi,
   clearAllMemoriesApi,
 } from "../services/api";
 import type { MemoryItem } from "../services/api";
@@ -47,6 +48,8 @@ function MemoryPage() {
   const [newContent, setNewContent] = useState("");
   const [newType, setNewType] = useState("decision");
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editContent, setEditContent] = useState("");
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const loadMemories = async () => {
@@ -93,6 +96,30 @@ function MemoryPage() {
       setMemories((prev) => prev.filter((m) => m.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete memory");
+    }
+  };
+
+  const startEdit = (mem: MemoryItem) => {
+    setEditingId(mem.id);
+    setEditContent(mem.content);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditContent("");
+  };
+
+  const handleUpdate = async (id: number) => {
+    if (!editContent.trim()) return;
+    try {
+      const updated = await updateMemoryApi(id, editContent.trim());
+      setMemories((prev) => prev.map((m) => (m.id === id ? updated : m)));
+      setEditingId(null);
+      setEditContent("");
+      setSuccessMsg("Memory updated.");
+      setTimeout(() => setSuccessMsg(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update memory");
     }
   };
 
@@ -202,6 +229,14 @@ function MemoryPage() {
                 </span>
                 <span className="message__label">{formatDate(mem.created_at)}</span>
                 <button
+                  className="memory-card__edit"
+                  onClick={() => startEdit(mem)}
+                  title="Edit"
+                  style={{ background: "none", border: "none", color: "#6366f1", cursor: "pointer", fontSize: "0.8rem", padding: "0.15rem 0.3rem" }}
+                >
+                  ✏️
+                </button>
+                <button
                   className="memory-card__delete"
                   onClick={() => handleDelete(mem.id)}
                   title="Delete"
@@ -209,7 +244,23 @@ function MemoryPage() {
                   ✕
                 </button>
               </div>
-              <p>{mem.content}</p>
+              {editingId === mem.id ? (
+                <div>
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="question-panel__input"
+                    rows={2}
+                    style={{ width: "100%", marginBottom: "0.5rem" }}
+                  />
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <button onClick={() => handleUpdate(mem.id)} className="btn btn--primary" style={{ padding: "0.35rem 0.8rem", fontSize: "0.8rem" }}>Save</button>
+                    <button onClick={cancelEdit} className="btn btn--secondary" style={{ padding: "0.35rem 0.8rem", fontSize: "0.8rem" }}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <p>{mem.content}</p>
+              )}
               {mem.relevance != null && (
                 <span className="memory-card__relevance">
                   Relevance: {Math.round(mem.relevance * 100)}%

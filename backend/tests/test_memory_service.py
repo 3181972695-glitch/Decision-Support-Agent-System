@@ -139,6 +139,35 @@ async def test_format_context_empty(memory: MemoryService) -> None:
 
 
 @pytest.mark.asyncio
+async def test_update_memory_content(memory: MemoryService) -> None:
+    """Should update memory content."""
+    mem_id = memory.save_memory(content="Original content", memory_type="preference")
+    updated = memory.update_memory(mem_id, content="Updated content")
+    assert updated is True
+    retrieved = memory.get_memory(mem_id)
+    assert retrieved is not None
+    assert retrieved["content"] == "Updated content"
+    assert retrieved["memory_type"] == "preference"  # unchanged
+
+
+@pytest.mark.asyncio
+async def test_update_memory_type(memory: MemoryService) -> None:
+    """Should update memory type as well."""
+    mem_id = memory.save_memory(content="Test", memory_type="preference")
+    memory.update_memory(mem_id, content="Updated", memory_type="decision")
+    retrieved = memory.get_memory(mem_id)
+    assert retrieved is not None
+    assert retrieved["content"] == "Updated"
+    assert retrieved["memory_type"] == "decision"
+
+
+@pytest.mark.asyncio
+async def test_update_nonexistent_returns_false(memory: MemoryService) -> None:
+    """Updating a non-existent memory should return False."""
+    assert memory.update_memory(99999, content="whatever") is False
+
+
+@pytest.mark.asyncio
 async def test_new_memories_appear_first(memory: MemoryService) -> None:
     """Most recent memories should appear first in list."""
     id1 = memory.save_memory(content="Older memory", memory_type="preference")

@@ -259,6 +259,28 @@ class MemoryService:
             },
         )
 
+    def update_memory(self, memory_id: int, content: str, memory_type: str | None = None) -> bool:
+        """Update a memory's content and optionally its type. Returns True if updated."""
+        conn = self._get_conn()
+        try:
+            if memory_type:
+                cur = conn.execute(
+                    "UPDATE memories SET content = ?, memory_type = ? WHERE id = ?",
+                    (content, memory_type, memory_id),
+                )
+            else:
+                cur = conn.execute(
+                    "UPDATE memories SET content = ? WHERE id = ?",
+                    (content, memory_id),
+                )
+            conn.commit()
+            updated = cur.rowcount > 0
+            if updated:
+                logger.info("[MEMORY] updated id=%d", memory_id)
+            return updated
+        finally:
+            conn.close()
+
     def close(self) -> None:
         """No-op for SQLite (connections are per-call). Included for interface compatibility."""
         pass
