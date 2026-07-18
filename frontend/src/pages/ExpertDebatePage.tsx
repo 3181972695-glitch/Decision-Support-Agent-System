@@ -13,6 +13,11 @@ const EXPERT_MODES = [
     label: "Career Strategy Debate",
     desc: "Coach vs Analyst vs Hiring Manager",
   },
+  {
+    value: "dynamic",
+    label: "Dynamic Expert Debate",
+    desc: "AI generates the expert panel for your question",
+  },
 ];
 
 const ROLE_COLORS: Record<string, { bg: string; fg: string }> = {
@@ -50,6 +55,9 @@ function ExpertDebatePage() {
       setLoading(false);
     }
   };
+
+  const isDynamic = mode === "dynamic";
+  const hasGeneratedExperts = result?.generated_experts && result.generated_experts.length > 0;
 
   return (
     <main>
@@ -98,8 +106,10 @@ function ExpertDebatePage() {
         <div className="status-banner status-banner--live">
           <span className="spinner" />
           <span>
-            Phase 1: Expert analysis... Phase 2: Cross-critique... Phase 3:
-            Judge deliberation...
+            {isDynamic
+              ? "Phase 0: Generating expert team... Phase 1: Expert analysis... Phase 2: Cross-critique... Phase 3: Judge deliberation..."
+              : "Phase 1: Expert analysis... Phase 2: Cross-critique... Phase 3: Judge deliberation..."
+            }
           </span>
         </div>
       )}
@@ -110,6 +120,26 @@ function ExpertDebatePage() {
           <div className="expert-debate-result__header">
             <h2>{result.mode}</h2>
           </div>
+
+          {/* ── Generated Expert Panel (dynamic only) ── */}
+          {hasGeneratedExperts && (
+            <section className="ed-section">
+              <h3 className="ed-section__title ed-section__title--generated">
+                Generated Expert Panel
+              </h3>
+              <div className="ed-generated-panel">
+                {result.generated_experts.map((ge, idx) => {
+                  const c = getRoleColor(ge.role);
+                  return (
+                    <div key={idx} className="ed-generated-card" style={{ borderLeftColor: c.fg }}>
+                      <span className="ed-generated-card__role" style={{ color: c.fg }}>{ge.role}</span>
+                      {ge.expertise && <span className="ed-generated-card__exp">{ge.expertise}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {/* ── Phase 1: Expert Analyses ── */}
           <section className="ed-section">

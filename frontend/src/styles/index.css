@@ -1532,3 +1532,247 @@ section h2:first-child {
   margin-bottom: 0.2rem;
   line-height: 1.4;
 }
+
+/* ── Generated Expert Panel ────────────────────────────────────── */
+.ed-section__title--generated { color: #6d28d9; }
+
+.ed-generated-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.ed-generated-card {
+  flex: 1;
+  min-width: 180px;
+  background: #f5f3ff;
+  border-left: 4px solid #8b5cf6;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ed-generated-card__role {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.ed-generated-card__exp {
+  font-size: 0.75rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* ── Streaming Expert Debate ────────────────────────────────────── */
+.st-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: #22c55e;
+  color: #fff;
+  vertical-align: middle;
+  margin-left: 0.5rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.st-container {
+  margin: 1.5rem 0;
+}
+
+.st-timeline {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  flex-wrap: wrap;
+}
+
+.st-timeline__step {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  opacity: 0.45;
+  transition: opacity 0.3s, background 0.3s;
+}
+
+.st-timeline__step--active {
+  opacity: 1;
+  background: #eef2ff;
+}
+
+.st-timeline__step--done {
+  opacity: 0.8;
+}
+
+.st-timeline__icon {
+  font-size: 0.7rem;
+  width: 12px;
+  text-align: center;
+}
+
+.st-timeline__step--active .st-timeline__icon {
+  animation: pulse 1.2s ease-in-out infinite;
+  color: #6366f1;
+}
+
+.st-timeline__step--done .st-timeline__icon {
+  color: #16a34a;
+}
+
+.st-section {
+  margin: 1.25rem 0;
+}
+
+.st-section__title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.st-message {
+  margin-bottom: 0.75rem;
+  transition: box-shadow 0.3s;
+}
+
+.st-message--active {
+  box-shadow: 0 0 0 2px #6366f1, 0 2px 8px rgba(99,102,241,0.15);
+}
+
+.st-message--small p {
+  font-size: 0.95rem;
+}
+
+.st-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.st-panel__card {
+  flex: 1;
+  min-width: 160px;
+  background: #f5f3ff;
+  border-left: 4px solid #8b5cf6;
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.st-panel__role {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.st-panel__exp {
+  font-size: 0.75rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* ── Memory Page ────────────────────────────────────────────────── */
+.memory-list {
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.memory-card {
+  position: relative;
+}
+
+.memory-card__delete {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.15rem 0.3rem;
+  line-height: 1;
+}
+
+.memory-card__delete:hover {
+  color: #ef4444;
+  background: none;
+}
+
+.memory-card__relevance {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.3rem;
+  display: block;
+}
+
+/* ── Tool Activity Panel ────────────────────────────────────────── */
+.st-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.st-tool-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.5rem;
+  background: #fff;
+  border-radius: 6px;
+}
+
+.st-tool-icon {
+  font-size: 0.9rem;
+  width: 18px;
+  text-align: center;
+}
+
+.st-tool-name {
+  font-weight: 600;
+  color: #374151;
+}
+
+.st-tool-expert {
+  color: #9ca3af;
+  font-size: 0.8rem;
+}
+
+.st-tool-status {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.st-tool-status--active {
+  color: #6366f1;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.st-tool-status--done {
+  color: #16a34a;
+}

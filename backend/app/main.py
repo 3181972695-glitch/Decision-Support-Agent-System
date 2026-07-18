@@ -13,12 +13,17 @@ import app.agents  # noqa: F401
 from app.api.debates import router as debates_router
 from app.api.routes.expert import router as expert_router
 from app.api.routes.expert_debate import router as expert_debate_router
+from app.api.routes.memory import router as memory_router
 from app.api.sse import router as sse_router
 from app.config import settings
 from app.services.debate_service import DebateService
 from app.services.expert_debate_service import ExpertDebateService
+from app.services.expert_generator_service import ExpertGeneratorService
 from app.services.expert_service import ExpertService
 from app.services.llm_service import LLMService
+from app.services.memory_service import MemoryService
+from app.services.streaming_expert_service import StreamingExpertDebateService
+from app.services.tool_service import ToolService
 from app.storage import create_repository as _create_repo
 
 # ── Logging configuration ───────────────────────────────────────
@@ -40,7 +45,23 @@ async def lifespan(app: FastAPI):
         agent_models=settings.AGENT_MODELS,
     )
     app.state.expert_service = ExpertService(llm_service=llm_service)
-    app.state.expert_debate_service = ExpertDebateService(llm_service=llm_service)
+    expert_generator = ExpertGeneratorService(llm_service=llm_service)
+    memory_service = MemoryService()
+    app.state.memory_service = memory_service
+    app.state.expert_debate_service = ExpertDebateService(
+        llm_service=llm_service, expert_generator=expert_generator,
+        memory_service=memory_service,
+    )
+    tool_service = ToolService()
+    app.state.tool_service = tool_service
+    app.state.expert_debate_service = ExpertDebateService(
+        llm_service=llm_service, expert_generator=expert_generator,
+        memory_service=memory_service, tool_service=tool_service,
+    )
+    app.state.streaming_expert_service = StreamingExpertDebateService(
+        llm_service=llm_service, expert_generator=expert_generator,
+        memory_service=memory_service, tool_service=tool_service,
+    )
     yield
 
 
@@ -63,6 +84,7 @@ app.include_router(debates_router, prefix="/api")
 app.include_router(sse_router, prefix="/api")
 app.include_router(expert_router, prefix="/api")
 app.include_router(expert_debate_router, prefix="/api")
+app.include_router(memory_router, prefix="/api")
 
 
 @app.get("/health")

@@ -14,7 +14,11 @@ import re
 
 from app.agents.base import detect_language
 from app.experts.expert_config import get_mode
+from app.services.expert_generator_service import ExpertGeneratorService
 from app.services.llm_service import LLMService
+from app.services.memory_service import MemoryService
+from app.services.tool_service import ToolService
+from app.services.streaming_expert_service import _build_tool_prompt, _parse_tool_calls
 
 logger = logging.getLogger("app.services.expert_debate_service")
 
@@ -31,10 +35,22 @@ _LANG_INSTR = {
 class ExpertDebateService:
     """Runs a structured multi-expert debate with cross-critique and a judge."""
 
-    def __init__(self, llm_service: LLMService) -> None:
+    def __init__(
+        self,
+        llm_service: LLMService,
+        expert_generator: ExpertGeneratorService | None = None,
+        memory_service: MemoryService | None = None,
+        tool_service: ToolService | None = None,
+    ) -> None:
         self._llm = llm_service
+        self._expert_generator = expert_generator
+        self._memory = memory_service
+        self._tool_service = tool_service
 
-    async def debate(self, mode: str, question: str) -> dict:
+    async def debate(
+        self, mode: str, question: str,
+        user_id: str = "demo_user",
+    ) -> dict:
         """Run a full expert debate for the given mode and question.
 
         Returns:
@@ -48,26 +64,58 @@ class ExpertDebateService:
                 "key_tradeoffs": [str, ...],
             }
         """
-        panel = get_mode(mode)
-        if panel is None:
-            raise ValueError(f"Unknown expert mode: {mode!r}")
+        generated_experts: list[dict] = []
 
-        logger.info(
-            "[EXPERT_DEBATE] mode=%s question=%r experts=%d",
-            mode, question[:60], len(panel["experts"]),
-        )
-
-        experts = panel["experts"]
-        display_name = panel["display_name"]
+        if mode == "dynamic":
+            if self._expert_generator is None:
+                raise ValueError(
+                    "Dynamic mode is not available — ExpertGeneratorService not configured"
+                )
+            logger.info("[EXPERT_DEBATE] dynamic mode, generating experts for question=%r", question[:60])
+            raw_experts = await self._expert_generator.generate(question)
+            experts = raw_experts
+            display_name = f"Dynamic Expert Debate"
+            generated_experts = [
+                {"role": e["role"], "expertise": e.get("expertise", "")}
+                for e in raw_experts
+            ]
+            logger.info(
+                "[EXPERT_DEBATE] dynamic mode generated %d experts: %s",
+                len(experts), [e["role"] for e in experts],
+            )
+        else:
+            panel = get_mode(mode)
+            if panel is None:
+                raise ValueError(f"Unknown expert mode: {mode!r}")
+            experts = panel["experts"]
+            display_name = panel["display_name"]
+            logger.info(
+                "[EXPERT_DEBATE] mode=%s question=%r experts=%d",
+                mode, question[:60], len(experts),
+            )
         lang = detect_language(question)
         lang_suffix = _LANG_INSTR.get(lang, _LANG_INSTR["English"])
         logger.info("[EXPERT_DEBATE] detected language=%s", lang)
+
+        # ── Memory retrieval ─────────────────────────────────────────
+        memory_context = ""
+        if self._memory is not None:
+            try:
+                memories = self._memory.retrieve_memory(query=question, user_id=user_id, limit=5)
+                if memories:
+                    memory_context = "\n\n" + self._memory.format_context(memories)
+                    logger.info(
+                        "[EXPERT_DEBATE] retrieved %d memories for user=%s",
+                        len(memories), user_id,
+                    )
+            except Exception as exc:
+                logger.warning("[EXPERT_DEBATE] memory retrieval error: %s", exc)
 
         # ── Phase 1: parallel independent analysis ──────────────────
 
         async def _phase1(expert: dict) -> dict:
             role = expert["role"]
-            system = expert["system_prompt"]
+            system = expert["system_prompt"] + _build_tool_prompt(self._tool_service)
             prompt = (
                 f"Question: {question}\n\n"
                 f"Provide your analysis from the perspective of a {role}. "
@@ -75,6 +123,7 @@ class ExpertDebateService:
                 f"ARGUMENTS:arg1|arg2|arg3\n"
                 f"replacing arg1, arg2, arg3 with your 2-3 strongest key points "
                 f"(each a short phrase, pipe-separated).{_NO_MD}{lang_suffix}"
+                f"{memory_context}"
             )
             logger.info("[EXPERT_DEBATE] phase1 role=%s", role)
             try:
@@ -86,6 +135,18 @@ class ExpertDebateService:
                 logger.warning("[EXPERT_DEBATE] phase1 error role=%s: %s", role, exc)
                 text = f"Error: {exc}"
 
+            # ── Execute any tool calls found in the output ──────────
+            tool_calls = _parse_tool_calls(text)
+            for tc in tool_calls:
+                if self._tool_service is not None:
+                    try:
+                        result = await self._tool_service.execute(
+                            tc["tool"], tc["arguments"],
+                        )
+                        text += f"\n\nTool ({tc['tool']}) result:\n{result}"
+                    except Exception as exc:
+                        logger.warning("[EXPERT_DEBATE] tool error: %s", exc)
+
             # Parse out the ARGUMENTS: line
             arguments: list[str] = []
             cleaned = text
@@ -95,6 +156,10 @@ class ExpertDebateService:
                 arguments = [a.strip() for a in raw.split("|") if a.strip()]
                 cleaned = text[:m.start()].rstrip()
 
+            import re as _re
+            cleaned = _re.sub(r'^TOOL_CALL:.*$', '', cleaned, flags=_re.MULTILINE).strip()
+            if not cleaned:
+                cleaned = text.strip()
             return {"role": role, "analysis": cleaned.strip(), "arguments": arguments}
 
         phase1_results: list[dict] = await asyncio.gather(
@@ -115,7 +180,7 @@ class ExpertDebateService:
                 f"Point out a specific weakness, blind spot, or disagreement "
                 f"from your perspective. Be concise — 2-4 sentences.{_NO_MD}{lang_suffix}"
             )
-            system = speaker["system_prompt"]
+            system = speaker["system_prompt"] + _build_tool_prompt(self._tool_service)
             logger.info("[EXPERT_DEBATE] phase2 %s → %s", s_role, o_role)
             try:
                 content = await self._llm.generate(
@@ -215,9 +280,22 @@ class ExpertDebateService:
         if m:
             tradeoffs = [t.strip() for t in m.group(1).split("|") if t.strip()]
 
+        # Store decision in memory
+        if self._memory is not None and final_decision:
+            try:
+                decision_text = final_decision[:300]
+                self._memory.store_decision(
+                    question=question, decision=decision_text,
+                    confidence=confidence, mode=mode,
+                )
+                logger.info("[EXPERT_DEBATE] stored decision memory")
+            except Exception as exc:
+                logger.warning("[EXPERT_DEBATE] memory storage error: %s", exc)
+
         return {
-            "mode": f"{display_name} Debate",
+            "mode": f"{display_name} Debate" if mode != "dynamic" else display_name,
             "question": question,
+            "generated_experts": generated_experts,
             "experts": phase1_results,
             "debate_rounds": debate_rounds,
             "final_decision": final_decision,

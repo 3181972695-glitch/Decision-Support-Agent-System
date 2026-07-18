@@ -125,9 +125,15 @@ export interface DebateRound {
   content: string;
 }
 
+export interface GeneratedExpert {
+  role: string;
+  expertise: string;
+}
+
 export interface ExpertDebateResponse {
   mode: string;
   question: string;
+  generated_experts: GeneratedExpert[];
   experts: ExpertDebateAnalysis[];
   debate_rounds: DebateRound[];
   final_decision: string;
@@ -135,6 +141,56 @@ export interface ExpertDebateResponse {
   confidence_reason: string[];
   uncertainties: string[];
   key_tradeoffs: string[];
+}
+
+// ── Memory System ─────────────────────────────────────────────────
+
+export interface MemoryItem {
+  id: number;
+  user_id: string;
+  memory_type: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  relevance?: number;
+}
+
+export interface MemoryListResponse {
+  memories: MemoryItem[];
+  total: number;
+}
+
+export function listMemoriesApi(
+  memoryType?: string,
+  limit?: number,
+): Promise<MemoryListResponse> {
+  const params = new URLSearchParams();
+  if (memoryType) params.set("memory_type", memoryType);
+  if (limit) params.set("limit", String(limit));
+  return request(`/memory?${params.toString()}`);
+}
+
+export function createMemoryApi(
+  content: string,
+  memoryType: string = "decision",
+  metadata?: Record<string, unknown>,
+): Promise<MemoryItem> {
+  return request("/memory", {
+    method: "POST",
+    body: JSON.stringify({
+      content,
+      memory_type: memoryType,
+      metadata: metadata ?? {},
+    }),
+  });
+}
+
+export function deleteMemoryApi(memoryId: number): Promise<void> {
+  return request(`/memory/${memoryId}`, { method: "DELETE" });
+}
+
+export function clearAllMemoriesApi(): Promise<{ deleted: number }> {
+  return request("/memory/clear", { method: "DELETE" });
 }
 
 export function expertDebateApi(payload: ExpertDebateRequest): Promise<ExpertDebateResponse> {

@@ -8,6 +8,25 @@ from app.services.expert_debate_service import ExpertDebateService
 from app.services.llm_service import LLMService
 
 
+_SAMPLE_GENERATED_EXPERTS = [
+    {
+        "role": "AI Strategy Consultant",
+        "expertise": "AI adoption and business impact",
+        "system_prompt": "You analyze AI transformation strategy for enterprises.",
+    },
+    {
+        "role": "Security Engineer",
+        "expertise": "Security and data privacy",
+        "system_prompt": "You evaluate security risks of AI adoption.",
+    },
+    {
+        "role": "Engineering Manager",
+        "expertise": "Software team productivity",
+        "system_prompt": "You analyze engineering workflow impact of AI tools.",
+    },
+]
+
+
 @pytest.fixture
 def mock_llm() -> LLMService:
     svc = LLMService()
@@ -22,11 +41,30 @@ def service(mock_llm: LLMService) -> ExpertDebateService:
     return ExpertDebateService(llm_service=mock_llm)
 
 
+@pytest.fixture
+def mock_generator():
+    """Create a mock generator that returns predefined experts."""
+    gen = AsyncMock()
+    gen.generate.return_value = _SAMPLE_GENERATED_EXPERTS
+    return gen
+
+
 @pytest.mark.asyncio
 async def test_unknown_mode_returns_error(service: ExpertDebateService) -> None:
     """Unknown mode should raise ValueError."""
     with pytest.raises(ValueError, match="Unknown expert mode"):
         await service.debate("nonexistent", "test question")
+
+
+def _check_fields(result: dict) -> None:
+    assert "generated_experts" in result
+    assert isinstance(result["generated_experts"], list)
+    assert "final_decision" in result
+    assert len(result["final_decision"]) > 0
+    assert isinstance(result["confidence"], int)
+    assert 0 <= result["confidence"] <= 100
+    assert isinstance(result.get("confidence_reason"), list)
+    assert isinstance(result.get("uncertainties"), list)
 
 
 @pytest.mark.asyncio
@@ -50,13 +88,7 @@ async def test_software_mode_returns_correct_structure(service: ExpertDebateServ
 
     # 3 experts × 2 others each = 6 debate rounds
     assert len(result["debate_rounds"]) == 6
-
-    assert "final_decision" in result
-    assert len(result["final_decision"]) > 0
-    assert isinstance(result["confidence"], int)
-    assert 0 <= result["confidence"] <= 100
-    assert isinstance(result.get("confidence_reason"), list)
-    assert isinstance(result.get("uncertainties"), list)
+    _check_fields(result)
 
 
 @pytest.mark.asyncio
@@ -72,9 +104,8 @@ async def test_career_mode_returns_correct_structure(service: ExpertDebateServic
     assert "Industry Analyst" in roles
     assert "Hiring Manager" in roles
 
-    # 3 experts × 2 others each = 6 debate rounds
     assert len(result["debate_rounds"]) == 6
-    assert len(result["final_decision"]) > 0
+    _check_fields(result)
 
 
 @pytest.mark.asyncio
@@ -125,7 +156,6 @@ async def test_expert_arguments_are_extracted(service: ExpertDebateService) -> N
 @pytest.mark.asyncio
 async def test_judge_confidence_is_parsed(service: ExpertDebateService) -> None:
     """Override mock for judge to return structured output, verify parsing."""
-    # For this test, simulate a structured judge response
     async def judge_side_effect(*, system_prompt: str = "", prompt: str, **kwargs: object) -> str:
         if "judge" in prompt.lower() or "trad" in prompt.lower():
             return (
@@ -151,3 +181,48 @@ async def test_judge_confidence_is_parsed(service: ExpertDebateService) -> None:
     assert len(result["key_tradeoffs"]) == 3
     assert "final_decision" in result
     assert len(result["final_decision"]) > 0
+
+
+# ── Dynamic mode tests ────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_dynamic_mode_without_generator_raises_error(mock_llm: LLMService) -> None:
+    """Dynamic mode without a generator should raise ValueError."""
+    svc = ExpertDebateService(llm_service=mock_llm)
+    with pytest.raises(ValueError, match="Dynamic mode is not available"):
+        await svc.debate("dynamic", "Test?")
+
+
+@pytest.mark.asyncio
+async def test_dynamic_mode_returns_generated_experts(mock_llm: LLMService, mock_generator) -> None:
+    """Dynamic mode should return generated_experts and correct structure."""
+    svc = ExpertDebateService(llm_service=mock_llm, expert_generator=mock_generator)
+    result = await svc.debate("dynamic", "Should we adopt AI coding agents?")
+
+    assert result["mode"] == "Dynamic Expert Debate"
+    assert result["question"] == "Should we adopt AI coding agents?"
+
+    # Check generated_experts metadata
+    assert len(result["generated_experts"]) == 3
+    assert result["generated_experts"][0]["role"] == "AI Strategy Consultant"
+    assert result["generated_experts"][0]["expertise"] == "AI adoption and business impact"
+
+    # Check debate results
+    assert len(result["experts"]) == 3
+    assert len(result["debate_rounds"]) == 6
+    _check_fields(result)
+
+    # Verify generator was called
+    mock_generator.generate.assert_awaited_once_with("Should we adopt AI coding agents?")
+
+
+@pytest.mark.asyncio
+async def test_dynamic_mode_roles_match_generated(mock_llm: LLMService, mock_generator) -> None:
+    """Expert roles should match the generated panel."""
+    svc = ExpertDebateService(llm_service=mock_llm, expert_generator=mock_generator)
+    result = await svc.debate("dynamic", "Test?")
+
+    generated_roles = {ge["role"] for ge in result["generated_experts"]}
+    expert_roles = {e["role"] for e in result["experts"]}
+    assert generated_roles == expert_roles
