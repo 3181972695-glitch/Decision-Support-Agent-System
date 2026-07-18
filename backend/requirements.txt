@@ -4,21 +4,20 @@ pydantic>=2.10.0
 pydantic-settings>=2.6.0
 python-dotenv>=1.0.0
 
-# LLM provider (pick one)
+# LLM provider
 openai>=1.55.0,<2.0.0
-# anthropic>=0.47.0
+
+# Production
+slowapi>=0.1.9
+structlog>=25.1.0
 
 # Testing
 pytest>=8.3.0
 pytest-asyncio>=0.24.0
 httpx>=0.28.0
 
-# Dev tooling
+# Linting
 ruff>=0.7.0
-
-# Production
-slowapi>=0.1.9
-structlog>=25.1.0
 
 # Database
 sqlalchemy[asyncio]>=2.0

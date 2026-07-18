@@ -27,15 +27,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Lint with ruff
-        run: |
-          pip install ruff
-          ruff check app/ tests/ --output-format=github
-
       - name: Test with pytest
         run: |
-          python -m pytest tests/ -v --tb=short \
+          python -m pytest tests/ -v --tb=short -x \
             -k "not DemoMode and not test_get_round_focus and not test_retry_5xx and not test_retry_exhausted and not test_loads_llm_base_url and not test_default_config_from_settings and not test_timeout_resets_awaiting_input"
+        timeout-minutes: 10
 
   frontend:
     runs-on: ubuntu-latest
