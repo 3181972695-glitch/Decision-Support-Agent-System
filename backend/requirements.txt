@@ -16,6 +16,10 @@ httpx>=0.28.0
 # Dev tooling
 ruff>=0.7.0
 
+# Production
+slowapi>=0.1.9
+structlog>=25.1.0
+
 # Database
 sqlalchemy[asyncio]>=2.0
 aiosqlite>=0.20
