@@ -105,3 +105,39 @@ export function expertAnalyzeApi(payload: ExpertRequest): Promise<ExpertResponse
     body: JSON.stringify(payload),
   });
 }
+
+// ── Expert Debate Mode ───────────────────────────────────────────
+
+export interface ExpertDebateRequest {
+  mode: string;
+  question: string;
+}
+
+export interface ExpertDebateAnalysis {
+  role: string;
+  analysis: string;
+  arguments: string[];
+}
+
+export interface DebateRound {
+  speaker: string;
+  response_to: string;
+  content: string;
+}
+
+export interface ExpertDebateResponse {
+  mode: string;
+  question: string;
+  experts: ExpertDebateAnalysis[];
+  debate_rounds: DebateRound[];
+  final_decision: string;
+  confidence: number;
+  key_tradeoffs: string[];
+}
+
+export function expertDebateApi(payload: ExpertDebateRequest): Promise<ExpertDebateResponse> {
+  return request("/expert/debate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
