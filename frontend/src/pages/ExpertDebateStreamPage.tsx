@@ -119,7 +119,14 @@ function ExpertDebateStreamPage() {
         </form>
       )}
 
-      {state.error && <p className="error">{state.error}</p>}
+      {state.error && (
+        <div>
+          <p className="error">{state.error}</p>
+          <button onClick={reset} className="btn btn--secondary" style={{ marginTop: "0.5rem" }}>
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* ── Re-run button (after complete or error) ── */}
       {(hasResult || state.phase === "error") && (

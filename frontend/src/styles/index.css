@@ -1776,3 +1776,23 @@ section h2:first-child {
 .st-tool-status--done {
   color: #16a34a;
 }
+
+/* ── Mobile responsive nav ─────────────────────────────────────── */
+@media (max-width: 640px) {
+  .nav-bar {
+    flex-wrap: wrap;
+    gap: 0;
+  }
+
+  .nav-bar__link {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    flex: 1 0 auto;
+    text-align: center;
+    border-bottom: 1px solid #2d2d5e;
+  }
+
+  .nav-bar__link:not(:last-child) {
+    border-right: 1px solid #2d2d5e;
+  }
+}
